@@ -7,10 +7,10 @@ declare(strict_types=1);
 
 namespace Magento\StoreGraphQl\Model\Resolver\Store;
 
-use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Store\Api\Data\StoreConfigInterface;
 use Magento\Store\Api\StoreConfigManagerInterface;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Store\Api\Data\StoreInterface;
+use Magento\Store\Api\StoreRepositoryInterface;
+use Magento\Store\Api\StoreResolverInterface;
 
 /**
  * StoreConfig field data provider, used for GraphQL request processing.
@@ -23,53 +23,39 @@ class StoreConfigDataProvider
     private $storeConfigManager;
 
     /**
-     * @var ScopeConfigInterface
+     * @var StoreResolverInterface
      */
-    private $scopeConfig;
+    private $storeResolver;
 
     /**
-     * @var array
+     * @var StoreRepositoryInterface
      */
-    private $extendedConfigData;
+    private $storeRepository;
 
     /**
      * @param StoreConfigManagerInterface $storeConfigManager
-     * @param ScopeConfigInterface $scopeConfig
-     * @param array $extendedConfigData
+     * @param StoreResolverInterface $storeResolver
+     * @param StoreRepositoryInterface $storeRepository
      */
     public function __construct(
         StoreConfigManagerInterface $storeConfigManager,
-        ScopeConfigInterface $scopeConfig,
-        array $extendedConfigData = []
+        StoreResolverInterface $storeResolver,
+        StoreRepositoryInterface $storeRepository
     ) {
         $this->storeConfigManager = $storeConfigManager;
-        $this->scopeConfig = $scopeConfig;
-        $this->extendedConfigData = $extendedConfigData;
+        $this->storeResolver = $storeResolver;
+        $this->storeRepository = $storeRepository;
     }
 
     /**
-     * Get store config data
+     * Get store config for current store
      *
-     * @param StoreInterface $store
      * @return array
      */
-    public function getStoreConfigData(StoreInterface $store): array
+    public function getStoreConfig() : array
     {
-        $storeConfigData = array_merge(
-            $this->getBaseConfigData($store),
-            $this->getExtendedConfigData((int)$store->getId())
-        );
-        return $storeConfigData;
-    }
-
-    /**
-     * Get base config data
-     *
-     * @param StoreInterface $store
-     * @return array
-     */
-    private function getBaseConfigData(StoreInterface $store) : array
-    {
+        $storeId = $this->storeResolver->getCurrentStoreId();
+        $store = $this->storeRepository->getById($storeId);
         $storeConfig = current($this->storeConfigManager->getStoreConfigs([$store->getCode()]));
 
         $storeConfigData = [
@@ -91,24 +77,5 @@ class StoreConfigDataProvider
             'secure_base_media_url' => $storeConfig->getSecureBaseMediaUrl()
         ];
         return $storeConfigData;
-    }
-
-    /**
-     * Get extended config data
-     *
-     * @param int $storeId
-     * @return array
-     */
-    private function getExtendedConfigData(int $storeId)
-    {
-        $extendedConfigData = [];
-        foreach ($this->extendedConfigData as $key => $path) {
-            $extendedConfigData[$key] = $this->scopeConfig->getValue(
-                $path,
-                ScopeInterface::SCOPE_STORE,
-                $storeId
-            );
-        }
-        return $extendedConfigData;
     }
 }
